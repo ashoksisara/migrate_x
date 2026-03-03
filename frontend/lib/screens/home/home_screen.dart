@@ -204,7 +204,8 @@ class _UploadPage extends StatelessWidget {
                 pipeline.stage == PipelineStage.idle) ...[
               const SizedBox(height: 16),
               Text(
-                'Error: ${pipeline.error}',
+                pipeline.error!.replaceFirst(RegExp(r'^Exception:\s*'), ''),
+                textAlign: TextAlign.center,
                 style:
                     TextStyle(color: Theme.of(context).colorScheme.error),
               ),
@@ -232,6 +233,40 @@ class _AnalysisPage extends ConsumerWidget {
           icon: Icons.analytics_outlined,
           title: 'Analyzing Project',
           subtitle: pipeline.statusMessage ?? 'Preparing...',
+        ),
+      );
+    }
+
+    if (pipeline.error != null && pipeline.analysisResults == null) {
+      return SectionPage(
+        maxWidth: kPipelineCardWidth,
+        child: PipelineCard(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.error_outline, size: 64,
+                  color: Theme.of(context).colorScheme.error),
+              const SizedBox(height: 16),
+              Text('Analysis Failed',
+                  style: Theme.of(context).textTheme.headlineSmall),
+              const SizedBox(height: 8),
+              Text(
+                pipeline.error!.replaceFirst(RegExp(r'^Exception:\s*'), ''),
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Theme.of(context).colorScheme.error,
+                    ),
+              ),
+              const SizedBox(height: 24),
+              OutlinedButton.icon(
+                onPressed: () {
+                  ref.read(pipelineProvider.notifier).reset();
+                },
+                icon: const Icon(Icons.refresh),
+                label: const Text('Start Over'),
+              ),
+            ],
+          ),
         ),
       );
     }

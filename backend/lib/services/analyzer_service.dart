@@ -66,7 +66,10 @@ class AnalyzerService {
     );
     print('  -> flutter pub get exited with ${result.exitCode}');
     if (result.exitCode != 0) {
-      print('  -> stderr: ${result.stderr}');
+      final stderr = result.stderr.toString().trim();
+      print('  -> stderr: $stderr');
+      throw AppException(
+          500, 'flutter pub get failed (exit ${result.exitCode}): $stderr');
     }
   }
 

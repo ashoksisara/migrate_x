@@ -1,5 +1,7 @@
 import 'dart:convert';
+import 'dart:io';
 
+import 'package:path/path.dart' as p;
 import 'package:shelf/shelf.dart';
 import 'package:shelf_multipart/shelf_multipart.dart';
 import 'package:shelf_router/shelf_router.dart';
@@ -36,6 +38,17 @@ Router uploadRoutes(ZipService zipService) {
       await zipService.extract(fileBytes, id);
       print('[upload] extracted to workspace/$id');
 
+      final workspaceDir =
+          Directory(p.join(zipService.workspacePath, id));
+      final pubspecFound = await _findPubspec(workspaceDir);
+      if (!pubspecFound) {
+        print('[upload] no pubspec.yaml found – cleaning up $id');
+        await workspaceDir.delete(recursive: true);
+        throw AppException(
+            400, 'Not a valid Flutter/Dart project (pubspec.yaml not found)');
+      }
+      print('[upload] pubspec.yaml found for $id');
+
       return Response.ok(
         jsonEncode({'id': id}),
         headers: {'Content-Type': 'application/json'},
@@ -54,4 +67,16 @@ Router uploadRoutes(ZipService zipService) {
   });
 
   return router;
+}
+
+Future<bool> _findPubspec(Directory dir) async {
+  if (await File(p.join(dir.path, 'pubspec.yaml')).exists()) return true;
+  await for (final entity in dir.list()) {
+    if (entity is Directory) {
+      if (await File(p.join(entity.path, 'pubspec.yaml')).exists()) {
+        return true;
+      }
+    }
+  }
+  return false;
 }

@@ -27,7 +27,8 @@ class ApiService {
     final response = await http.Response.fromStream(streamed);
 
     if (response.statusCode != 200) {
-      throw Exception('Upload failed: ${response.body}');
+      final msg = _errorMessage(response.body) ?? 'Upload failed';
+      throw Exception(msg);
     }
 
     final json = jsonDecode(response.body) as Map<String, dynamic>;
@@ -39,7 +40,8 @@ class ApiService {
     final response = await _client.post(uri);
 
     if (response.statusCode != 200) {
-      throw Exception('Dependency resolution failed: ${response.body}');
+      final msg = _errorMessage(response.body) ?? 'Dependency resolution failed';
+      throw Exception(msg);
     }
   }
 
@@ -48,7 +50,8 @@ class ApiService {
     final response = await _client.get(uri);
 
     if (response.statusCode != 200) {
-      throw Exception('Analysis failed: ${response.body}');
+      final msg = _errorMessage(response.body) ?? 'Analysis failed';
+      throw Exception(msg);
     }
 
     final json = jsonDecode(response.body) as Map<String, dynamic>;
@@ -91,5 +94,14 @@ class ApiService {
     }
 
     return response.bodyBytes;
+  }
+
+  static String? _errorMessage(String body) {
+    try {
+      final json = jsonDecode(body) as Map<String, dynamic>;
+      return json['error'] as String?;
+    } catch (_) {
+      return null;
+    }
   }
 }

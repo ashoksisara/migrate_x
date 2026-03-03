@@ -118,7 +118,10 @@ class PipelineNotifier extends Notifier<PipelineState> {
         statusMessage: 'Analysis complete',
       );
     } catch (e) {
-      state = state.copyWith(error: e.toString());
+      state = state.copyWith(
+        stage: PipelineStage.analysisComplete,
+        error: e.toString(),
+      );
     }
   }
 
