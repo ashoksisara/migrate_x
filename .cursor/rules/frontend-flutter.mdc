@@ -1,0 +1,46 @@
+---
+description: Frontend Flutter conventions covering Material 3 theming, Riverpod state management, single-page pipeline architecture, and widget patterns.
+globs: frontend/**/*.dart
+alwaysApply: false
+---
+
+# Frontend Flutter Conventions
+
+## Theming
+
+- Material 3 is mandatory: `useMaterial3: true` with `ColorScheme.fromSeed(seedColor: Colors.indigo)`.
+- Use M3 widgets: `FilledButton`, `Card`, `NavigationBar`, `Scaffold` with M3 AppBar.
+- Support both light and dark themes via `theme` and `darkTheme` in `MaterialApp`.
+
+## Single-Page Pipeline Architecture
+
+- The app is a single scrollable page (`HomeScreen`) with progressively revealed sections.
+- Pipeline stages: idle -> uploading -> analyzing -> migrating -> reviewing -> downloadReady.
+- Sections appear conditionally based on the current `PipelineStage` and auto-scroll into view.
+- All UI lives in `lib/screens/home/`: the screen, pipeline provider, and feature widgets (upload_button, analysis_card, diff_viewer).
+- Shared providers (e.g. `api_provider.dart`) stay in `lib/providers/`.
+- Shared widgets (e.g. `package_list_tile.dart`) stay in `lib/widgets/`.
+- Models stay in `lib/models/`.
+
+## State Management (Riverpod)
+
+- Use `flutter_riverpod` for all non-trivial state.
+- The `pipelineProvider` (`NotifierProvider<PipelineNotifier, PipelineState>`) drives the entire upload-to-download flow.
+- Shared providers live in `lib/providers/` (e.g. `api_provider.dart`).
+- Consume providers with `ConsumerWidget` or `ConsumerStatefulWidget`, never raw `StatefulWidget` for provider-dependent UI.
+
+## Navigation
+
+- Single route: `AppRoutes.home` (`/`). No multi-screen navigation.
+- Route map in `lib/routes/app_routes.dart`, consumed by `MaterialApp` in `app.dart`.
+
+## Diff Rendering
+
+- Use `pretty_diff_text` package with `PrettyDiffText(oldText:, newText:)`.
+- Always use monospace font in diff views.
+- Each file diff has Accept/Decline buttons. Per-file decisions tracked in `PipelineState.fileDecisions`.
+- The `MigrationPlan` model holds `List<FileDiff>`, each with `filename`, `oldText`, `newText`.
+
+## Dependencies
+
+flutter_riverpod, http, file_picker, pretty_diff_text, path. Do not add new dependencies without discussion.

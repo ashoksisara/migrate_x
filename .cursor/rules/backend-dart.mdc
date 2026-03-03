@@ -1,0 +1,46 @@
+---
+description: Backend Dart conventions for the shelf/shelf_router API server.
+globs: backend/**/*.dart
+alwaysApply: false
+---
+
+# Backend Dart Conventions
+
+## Server & Routing
+
+- Entry point is `bin/server.dart`. It loads `.env` via `dotenv`, builds a `Router`, mounts route groups, wraps with `Pipeline` middleware, and serves.
+- Each route file exports a top-level function that accepts service dependencies and returns a `Router`.
+- Route handlers catch `AppException` and return JSON error responses with the correct status code.
+
+```dart
+// Pattern for route files
+Router myRoutes(MyService service) {
+  final router = Router();
+  router.get('/<id>', (Request request, String id) async {
+    try {
+      final result = await service.doWork(id);
+      return Response.ok(jsonEncode(result), headers: {'Content-Type': 'application/json'});
+    } on AppException catch (e) {
+      return Response(e.statusCode,
+          body: jsonEncode({'error': e.message}),
+          headers: {'Content-Type': 'application/json'});
+    }
+  });
+  return router;
+}
+```
+
+## Services
+
+- Services are plain classes. Constructor receives config values (e.g. `workspacePath`).
+- Use `process_run` for CLI operations, `archive` package for zip handling.
+- Keep services stateless where possible.
+
+## Error Handling
+
+- Throw `AppException(statusCode, message)` for expected errors.
+- Unexpected exceptions bubble up to the logger middleware.
+
+## Dependencies
+
+shelf, shelf_router, dotenv, process_run, archive, path, args, uuid. Do not add new dependencies without discussion.

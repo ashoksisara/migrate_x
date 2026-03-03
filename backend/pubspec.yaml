@@ -1,0 +1,20 @@
+name: migrate_x_backend
+description: Dart backend for Migrate X.
+version: 0.1.0
+
+environment:
+  sdk: ^3.11.0
+
+dependencies:
+  shelf: ^1.4.2
+  shelf_router: ^1.1.4
+  dotenv: ^4.2.0
+  process_run: ^1.3.1
+  archive: ^4.0.9
+  path: ^1.9.0
+  args: ^2.5.0
+  uuid: ^4.5.1
+  shelf_multipart: ^2.0.1
+
+dev_dependencies:
+  lints: ^5.1.1
