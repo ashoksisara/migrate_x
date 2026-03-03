@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../providers/theme_provider.dart';
 import '../../models/analysis_result.dart';
+import '../../widgets/analysis_card.dart';
 import '../../widgets/download_button.dart';
 import '../../widgets/file_diff_card.dart';
 import '../../widgets/loading_card.dart';
@@ -220,37 +221,56 @@ class _AnalysisPage extends ConsumerWidget {
     final isLoading = pipeline.stage == PipelineStage.analyzing;
     final isDone = pipeline.stage == PipelineStage.analysisComplete;
 
-    return SectionPage(
-      maxWidth: kPipelineCardWidth,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          if (isLoading)
-            LoadingCard(
-              icon: Icons.analytics_outlined,
-              title: 'Analyzing Project',
-              subtitle: pipeline.statusMessage ?? 'Preparing...',
-            )
-          else if (pipeline.analysisResults != null)
-            _AnalysisSummaryCard(results: pipeline.analysisResults!),
-          if (isDone) ...[
-            const SizedBox(height: 24),
-            Center(
-              child: IconButton.filled(
-                onPressed: () =>
-                    ref.read(pipelineProvider.notifier).startMigration(),
-                icon: const Icon(Icons.keyboard_arrow_down, size: 32),
-                style: IconButton.styleFrom(
-                  backgroundColor:
-                      Theme.of(context).colorScheme.primary,
-                  foregroundColor:
-                      Theme.of(context).colorScheme.onPrimary,
+    if (isLoading) {
+      return SectionPage(
+        maxWidth: kPipelineCardWidth,
+        child: LoadingCard(
+          icon: Icons.analytics_outlined,
+          title: 'Analyzing Project',
+          subtitle: pipeline.statusMessage ?? 'Preparing...',
+        ),
+      );
+    }
+
+    final results = pipeline.analysisResults;
+    if (results == null) return const SizedBox.shrink();
+
+    final colors = Theme.of(context).colorScheme;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 620),
+          child: Column(
+            children: [
+              _AnalysisSummaryCard(results: results),
+              if (results.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Expanded(
+                  child: ListView.builder(
+                    itemCount: results.length,
+                    itemBuilder: (context, index) =>
+                        AnalysisCard(result: results[index]),
+                  ),
                 ),
-              ),
-            ),
-          ],
-        ],
+              ],
+              if (isDone) ...[
+                const SizedBox(height: 12),
+                IconButton.filled(
+                  onPressed: () =>
+                      ref.read(pipelineProvider.notifier).startMigration(),
+                  icon: const Icon(Icons.keyboard_arrow_down, size: 32),
+                  style: IconButton.styleFrom(
+                    backgroundColor: colors.primary,
+                    foregroundColor: colors.onPrimary,
+                  ),
+                ),
+                const SizedBox(height: 8),
+              ],
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -437,20 +457,30 @@ class _AnalysisSummaryCard extends StatelessWidget {
     final text = Theme.of(context).textTheme;
 
     if (results.isEmpty) {
-      return PipelineCard(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.check_circle_outline, size: 64, color: colors.primary),
-            const SizedBox(height: 16),
-            Text('Analysis Complete', style: text.headlineSmall),
-            const SizedBox(height: 8),
-            Text(
-              'No issues found in your project.',
-              textAlign: TextAlign.center,
-              style: text.bodyMedium?.copyWith(color: colors.onSurfaceVariant),
-            ),
-          ],
+      return Card(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+          child: Row(
+            children: [
+              Icon(Icons.check_circle_outline, size: 32, color: colors.primary),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text('Analysis Complete', style: text.titleMedium),
+                    const SizedBox(height: 4),
+                    Text(
+                      'No issues found in your project.',
+                      style: text.bodyMedium
+                          ?.copyWith(color: colors.onSurfaceVariant),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       );
     }
@@ -461,49 +491,47 @@ class _AnalysisSummaryCard extends StatelessWidget {
         results.where((r) => r.severity.toUpperCase() == 'WARNING').length;
     final infos = results.length - errors - warnings;
 
-    return PipelineCard(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.analytics_outlined, size: 64, color: colors.primary),
-          const SizedBox(height: 16),
-          Text('Analysis Complete', style: text.headlineSmall),
-          const SizedBox(height: 8),
-          Text(
-            '${results.length} issue${results.length == 1 ? '' : 's'} found',
-            style: text.bodyMedium?.copyWith(color: colors.onSurfaceVariant),
-          ),
-          const SizedBox(height: 20),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              if (errors > 0)
-                _IssueBadge(
-                  icon: Icons.error,
-                  color: Colors.red,
-                  count: errors,
-                  label: 'Errors',
-                ),
-              if (errors > 0 && warnings > 0) const SizedBox(width: 16),
-              if (warnings > 0)
-                _IssueBadge(
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+        child: Row(
+          children: [
+            Icon(Icons.analytics_outlined, size: 32, color: colors.primary),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text('Analysis Complete', style: text.titleMedium),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${results.length} issue${results.length == 1 ? '' : 's'} found',
+                    style: text.bodyMedium
+                        ?.copyWith(color: colors.onSurfaceVariant),
+                  ),
+                ],
+              ),
+            ),
+            if (errors > 0)
+              _IssueBadge(
+                  icon: Icons.error, color: Colors.red, count: errors),
+            if (warnings > 0) ...[
+              const SizedBox(width: 12),
+              _IssueBadge(
                   icon: Icons.warning_amber,
                   color: Colors.orange,
-                  count: warnings,
-                  label: 'Warnings',
-                ),
-              if ((errors > 0 || warnings > 0) && infos > 0)
-                const SizedBox(width: 16),
-              if (infos > 0)
-                _IssueBadge(
+                  count: warnings),
+            ],
+            if (infos > 0) ...[
+              const SizedBox(width: 12),
+              _IssueBadge(
                   icon: Icons.info_outline,
                   color: Colors.blue,
-                  count: infos,
-                  label: 'Info',
-                ),
+                  count: infos),
             ],
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -513,33 +541,26 @@ class _IssueBadge extends StatelessWidget {
   final IconData icon;
   final Color color;
   final int count;
-  final String label;
 
   const _IssueBadge({
     required this.icon,
     required this.color,
     required this.count,
-    required this.label,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Column(
+    return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, color: color, size: 28),
-        const SizedBox(height: 4),
+        Icon(icon, color: color, size: 20),
+        const SizedBox(width: 4),
         Text(
           '$count',
-          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
-        ),
-        Text(
-          label,
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
+          style: Theme.of(context)
+              .textTheme
+              .titleSmall
+              ?.copyWith(fontWeight: FontWeight.bold),
         ),
       ],
     );
