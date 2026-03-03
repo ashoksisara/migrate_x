@@ -10,7 +10,6 @@ import 'package:migrate_x_backend/cors.dart';
 import 'package:migrate_x_backend/logger.dart';
 import 'package:migrate_x_backend/services/analyzer_service.dart';
 import 'package:migrate_x_backend/services/migration_service.dart';
-import 'package:migrate_x_backend/services/patch_service.dart';
 import 'package:migrate_x_backend/services/zip_service.dart';
 import 'package:migrate_x_backend/routes/upload_routes.dart';
 import 'package:migrate_x_backend/routes/analysis_routes.dart';
@@ -32,8 +31,7 @@ Future<void> main() async {
 
   final zipService = ZipService(config.workspacePath);
   final analyzerService = AnalyzerService(config.workspacePath);
-  final patchService = PatchService();
-  final migrationService = MigrationService(patchService);
+  final migrationService = MigrationService(config.workspacePath);
 
   final router = Router()
     ..mount('/upload', uploadRoutes(zipService).call)

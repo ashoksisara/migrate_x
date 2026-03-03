@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import '../models/analysis_result.dart';
+import '../models/dry_run_result.dart';
 import '../models/migration_plan.dart';
 import 'api_service.dart';
 
@@ -65,7 +66,32 @@ class MockApiService extends ApiService {
   }
 
   @override
-  Future<MigrationPlan> getMigrationPlan(String id) async {
+  Future<DryRunResult> getMigrationDryRun(String id) async {
+    await Future<void>.delayed(const Duration(seconds: 2));
+    return DryRunResult(
+      totalFixes: 6,
+      totalFiles: 3,
+      suggestions: [
+        FixSuggestion(
+            file: 'lib/main.dart',
+            fixName: 'prefer_const_constructors',
+            count: 3),
+        FixSuggestion(
+            file: 'lib/main.dart', fixName: 'use_super_parameters', count: 1),
+        FixSuggestion(
+            file: 'lib/widgets/counter.dart',
+            fixName: 'use_super_parameters',
+            count: 1),
+        FixSuggestion(
+            file: 'lib/theme.dart',
+            fixName: 'prefer_const_declarations',
+            count: 1),
+      ],
+    );
+  }
+
+  @override
+  Future<MigrationPlan> applyMigration(String id) async {
     await Future<void>.delayed(const Duration(seconds: 2));
     return MigrationPlan(
       summary: 'Migration plan for workspace $id:\n'

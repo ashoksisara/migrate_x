@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../models/analysis_result.dart';
+import '../../models/dry_run_result.dart';
 import '../../models/migration_plan.dart';
 import '../../providers/api_provider.dart';
 
@@ -12,6 +13,8 @@ enum PipelineStage {
   analyzing,
   analysisComplete,
   migrating,
+  migrationComplete,
+  applying,
   reviewing,
   downloadReady,
 }
@@ -21,6 +24,7 @@ class PipelineState {
   final String? workspaceId;
   final String? statusMessage;
   final List<AnalysisResult>? analysisResults;
+  final DryRunResult? dryRunResult;
   final MigrationPlan? migrationPlan;
   final Map<String, bool> fileDecisions;
   final String? error;
@@ -30,6 +34,7 @@ class PipelineState {
     this.workspaceId,
     this.statusMessage,
     this.analysisResults,
+    this.dryRunResult,
     this.migrationPlan,
     this.fileDecisions = const {},
     this.error,
@@ -40,6 +45,7 @@ class PipelineState {
     String? workspaceId,
     String? statusMessage,
     List<AnalysisResult>? analysisResults,
+    DryRunResult? dryRunResult,
     MigrationPlan? migrationPlan,
     Map<String, bool>? fileDecisions,
     String? error,
@@ -49,6 +55,7 @@ class PipelineState {
       workspaceId: workspaceId ?? this.workspaceId,
       statusMessage: statusMessage ?? this.statusMessage,
       analysisResults: analysisResults ?? this.analysisResults,
+      dryRunResult: dryRunResult ?? this.dryRunResult,
       migrationPlan: migrationPlan ?? this.migrationPlan,
       fileDecisions: fileDecisions ?? this.fileDecisions,
       error: error,
@@ -120,15 +127,33 @@ class PipelineNotifier extends Notifier<PipelineState> {
     if (id == null) return;
     state = state.copyWith(
       stage: PipelineStage.migrating,
-      statusMessage: 'Generating migration diffs...',
+      statusMessage: 'Running dart fix --dry-run...',
     );
-    await _runMigration(id);
-  }
 
-  Future<void> _runMigration(String id) async {
     try {
       final api = ref.read(apiProvider);
-      final plan = await api.getMigrationPlan(id);
+      final result = await api.getMigrationDryRun(id);
+      state = state.copyWith(
+        stage: PipelineStage.migrationComplete,
+        dryRunResult: result,
+        statusMessage: 'Migration scan complete',
+      );
+    } catch (e) {
+      state = state.copyWith(error: e.toString());
+    }
+  }
+
+  Future<void> applyFixes() async {
+    final id = state.workspaceId;
+    if (id == null) return;
+    state = state.copyWith(
+      stage: PipelineStage.applying,
+      statusMessage: 'Running dart fix --apply...',
+    );
+
+    try {
+      final api = ref.read(apiProvider);
+      final plan = await api.applyMigration(id);
       state = state.copyWith(
         stage: PipelineStage.reviewing,
         migrationPlan: plan,

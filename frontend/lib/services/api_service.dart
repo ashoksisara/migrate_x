@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 
 import '../models/analysis_result.dart';
+import '../models/dry_run_result.dart';
 import '../models/migration_plan.dart';
 
 class ApiService {
@@ -57,12 +58,24 @@ class ApiService {
         .toList();
   }
 
-  Future<MigrationPlan> getMigrationPlan(String id) async {
-    final uri = Uri.parse('$baseUrl/migrate/$id');
-    final response = await _client.get(uri);
+  Future<DryRunResult> getMigrationDryRun(String id) async {
+    final uri = Uri.parse('$baseUrl/migrate/dry-run/$id');
+    final response = await _client.post(uri);
 
     if (response.statusCode != 200) {
-      throw Exception('Migration failed: ${response.body}');
+      throw Exception('Dry run failed: ${response.body}');
+    }
+
+    final json = jsonDecode(response.body) as Map<String, dynamic>;
+    return DryRunResult.fromJson(json);
+  }
+
+  Future<MigrationPlan> applyMigration(String id) async {
+    final uri = Uri.parse('$baseUrl/migrate/apply/$id');
+    final response = await _client.post(uri);
+
+    if (response.statusCode != 200) {
+      throw Exception('Apply migration failed: ${response.body}');
     }
 
     final json = jsonDecode(response.body) as Map<String, dynamic>;
