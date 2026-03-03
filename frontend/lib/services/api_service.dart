@@ -35,6 +35,11 @@ class ApiService {
     return json['id'] as String;
   }
 
+  Future<void> deleteWorkspace(String id) async {
+    final uri = Uri.parse('$baseUrl/upload/$id');
+    await _client.delete(uri);
+  }
+
   Future<void> resolveDependencies(String id) async {
     final uri = Uri.parse('$baseUrl/analyze/resolve/$id');
     final response = await _client.post(uri);

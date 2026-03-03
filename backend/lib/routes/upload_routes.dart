@@ -66,6 +66,23 @@ Router uploadRoutes(ZipService zipService) {
     }
   });
 
+  router.delete('/<id>', (Request request, String id) async {
+    try {
+      print('[upload] deleting workspace $id');
+      await zipService.delete(id);
+      print('[upload] workspace $id deleted');
+      return Response.ok(
+        jsonEncode({'status': 'ok'}),
+        headers: {'Content-Type': 'application/json'},
+      );
+    } catch (e) {
+      print('[upload] delete error for $id: $e');
+      return Response.internalServerError(
+          body: jsonEncode({'error': e.toString()}),
+          headers: {'Content-Type': 'application/json'});
+    }
+  });
+
   return router;
 }
 

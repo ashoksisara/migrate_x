@@ -49,5 +49,12 @@ class ZipService {
     return ZipEncoder().encode(archive);
   }
 
+  Future<void> delete(String id) async {
+    final dir = Directory(p.join(workspacePath, id));
+    if (await dir.exists()) {
+      await dir.delete(recursive: true);
+    }
+  }
+
   String projectPath(String id) => p.join(workspacePath, id);
 }

@@ -15,6 +15,9 @@ class MockApiService extends ApiService {
   }
 
   @override
+  Future<void> deleteWorkspace(String id) async {}
+
+  @override
   Future<void> resolveDependencies(String id) async {
     await Future<void>.delayed(const Duration(seconds: 2));
   }

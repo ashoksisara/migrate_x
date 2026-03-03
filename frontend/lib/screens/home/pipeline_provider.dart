@@ -80,6 +80,7 @@ class PipelineNotifier extends Notifier<PipelineState> {
   PipelineState build() => const PipelineState();
 
   Future<void> upload(Uint8List bytes, String filename) async {
+    final previousId = state.workspaceId;
     state = const PipelineState(
       stage: PipelineStage.uploading,
       statusMessage: 'Uploading project...',
@@ -87,6 +88,9 @@ class PipelineNotifier extends Notifier<PipelineState> {
 
     try {
       final api = ref.read(apiProvider);
+      if (previousId != null) {
+        await api.deleteWorkspace(previousId);
+      }
       final id = await api.uploadZip(bytes, filename);
       state = state.copyWith(
         stage: PipelineStage.analyzing,
@@ -187,6 +191,10 @@ class PipelineNotifier extends Notifier<PipelineState> {
   }
 
   void reset() {
+    final oldId = state.workspaceId;
+    if (oldId != null) {
+      ref.read(apiProvider).deleteWorkspace(oldId);
+    }
     state = const PipelineState();
   }
 }
