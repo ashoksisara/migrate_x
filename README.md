@@ -10,29 +10,6 @@ migrate_x/
   frontend/         — Flutter app with Material 3 UI
 ```
 
-### Backend (`backend/`)
-
-Flat, modular Dart server using shelf and shelf_router.
-
-- `bin/server.dart` — entry point, starts HTTP server
-- `lib/config.dart` — environment config loaded from .env
-- `lib/logger.dart` — request/response logging middleware
-- `lib/exceptions.dart` — custom AppException class
-- `lib/services/` — business logic (zip extraction, analysis, migration, patch generation)
-- `lib/routes/` — HTTP route handlers (upload, analyze, migrate, download)
-
-### Frontend (`frontend/`)
-
-Flutter app using Riverpod for state management and Material 3 theming.
-
-- `lib/main.dart` — app entry point with ProviderScope
-- `lib/app.dart` — MaterialApp with M3 theme and named routes
-- `lib/models/` — data classes (AnalysisResult, PackageInfo, MigrationPlan)
-- `lib/providers/` — Riverpod providers (api, upload, analysis, migration)
-- `lib/services/` — HTTP API client
-- `lib/screens/` — HomeScreen, AnalysisScreen, DiffScreen
-- `lib/widgets/` — reusable UI components
-
 ## Getting Started
 
 ### Prerequisites
