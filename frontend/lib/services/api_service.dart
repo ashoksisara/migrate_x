@@ -33,6 +33,15 @@ class ApiService {
     return json['id'] as String;
   }
 
+  Future<void> resolveDependencies(String id) async {
+    final uri = Uri.parse('$baseUrl/analyze/resolve/$id');
+    final response = await _client.post(uri);
+
+    if (response.statusCode != 200) {
+      throw Exception('Dependency resolution failed: ${response.body}');
+    }
+  }
+
   Future<List<AnalysisResult>> getAnalysis(String id) async {
     final uri = Uri.parse('$baseUrl/analyze/$id');
     final response = await _client.get(uri);

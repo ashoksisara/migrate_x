@@ -10,6 +10,7 @@ enum PipelineStage {
   idle,
   uploading,
   analyzing,
+  analysisComplete,
   migrating,
   reviewing,
   downloadReady,
@@ -18,6 +19,7 @@ enum PipelineStage {
 class PipelineState {
   final PipelineStage stage;
   final String? workspaceId;
+  final String? statusMessage;
   final List<AnalysisResult>? analysisResults;
   final MigrationPlan? migrationPlan;
   final Map<String, bool> fileDecisions;
@@ -26,6 +28,7 @@ class PipelineState {
   const PipelineState({
     this.stage = PipelineStage.idle,
     this.workspaceId,
+    this.statusMessage,
     this.analysisResults,
     this.migrationPlan,
     this.fileDecisions = const {},
@@ -35,6 +38,7 @@ class PipelineState {
   PipelineState copyWith({
     PipelineStage? stage,
     String? workspaceId,
+    String? statusMessage,
     List<AnalysisResult>? analysisResults,
     MigrationPlan? migrationPlan,
     Map<String, bool>? fileDecisions,
@@ -43,6 +47,7 @@ class PipelineState {
     return PipelineState(
       stage: stage ?? this.stage,
       workspaceId: workspaceId ?? this.workspaceId,
+      statusMessage: statusMessage ?? this.statusMessage,
       analysisResults: analysisResults ?? this.analysisResults,
       migrationPlan: migrationPlan ?? this.migrationPlan,
       fileDecisions: fileDecisions ?? this.fileDecisions,
@@ -68,7 +73,10 @@ class PipelineNotifier extends Notifier<PipelineState> {
   PipelineState build() => const PipelineState();
 
   Future<void> upload(Uint8List bytes, String filename) async {
-    state = const PipelineState(stage: PipelineStage.uploading);
+    state = const PipelineState(
+      stage: PipelineStage.uploading,
+      statusMessage: 'Uploading project...',
+    );
 
     try {
       final api = ref.read(apiProvider);
@@ -76,6 +84,7 @@ class PipelineNotifier extends Notifier<PipelineState> {
       state = state.copyWith(
         stage: PipelineStage.analyzing,
         workspaceId: id,
+        statusMessage: 'Running flutter pub get...',
       );
       await _runAnalysis(id);
     } catch (e) {
@@ -89,15 +98,31 @@ class PipelineNotifier extends Notifier<PipelineState> {
   Future<void> _runAnalysis(String id) async {
     try {
       final api = ref.read(apiProvider);
+
+      state = state.copyWith(statusMessage: 'Running flutter pub get...');
+      await api.resolveDependencies(id);
+
+      state = state.copyWith(statusMessage: 'Running dart analyze...');
       final results = await api.getAnalysis(id);
+
       state = state.copyWith(
-        stage: PipelineStage.migrating,
+        stage: PipelineStage.analysisComplete,
         analysisResults: results,
+        statusMessage: 'Analysis complete',
       );
-      await _runMigration(id);
     } catch (e) {
       state = state.copyWith(error: e.toString());
     }
+  }
+
+  Future<void> startMigration() async {
+    final id = state.workspaceId;
+    if (id == null) return;
+    state = state.copyWith(
+      stage: PipelineStage.migrating,
+      statusMessage: 'Generating migration diffs...',
+    );
+    await _runMigration(id);
   }
 
   Future<void> _runMigration(String id) async {

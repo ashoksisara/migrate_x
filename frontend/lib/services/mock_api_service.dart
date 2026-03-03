@@ -14,6 +14,11 @@ class MockApiService extends ApiService {
   }
 
   @override
+  Future<void> resolveDependencies(String id) async {
+    await Future<void>.delayed(const Duration(seconds: 2));
+  }
+
+  @override
   Future<List<AnalysisResult>> getAnalysis(String id) async {
     await Future<void>.delayed(const Duration(milliseconds: 1500));
     return [
