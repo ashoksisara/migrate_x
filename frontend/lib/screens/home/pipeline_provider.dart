@@ -20,6 +20,7 @@ class PipelineState {
   final PipelineStage stage;
   final String? workspaceId;
   final String? statusMessage;
+  final String? progressMessage;
   final List<AnalysisResult>? analysisResults;
   final MigrationPlan? migrationPlan;
   final Map<String, bool> fileDecisions;
@@ -29,6 +30,7 @@ class PipelineState {
     this.stage = PipelineStage.idle,
     this.workspaceId,
     this.statusMessage,
+    this.progressMessage,
     this.analysisResults,
     this.migrationPlan,
     this.fileDecisions = const {},
@@ -39,6 +41,7 @@ class PipelineState {
     PipelineStage? stage,
     String? workspaceId,
     String? statusMessage,
+    String? progressMessage,
     List<AnalysisResult>? analysisResults,
     MigrationPlan? migrationPlan,
     Map<String, bool>? fileDecisions,
@@ -48,6 +51,7 @@ class PipelineState {
       stage: stage ?? this.stage,
       workspaceId: workspaceId ?? this.workspaceId,
       statusMessage: statusMessage ?? this.statusMessage,
+      progressMessage: progressMessage ?? this.progressMessage,
       analysisResults: analysisResults ?? this.analysisResults,
       migrationPlan: migrationPlan ?? this.migrationPlan,
       fileDecisions: fileDecisions ?? this.fileDecisions,
@@ -127,12 +131,14 @@ class PipelineNotifier extends Notifier<PipelineState> {
     if (id == null) return;
     state = state.copyWith(
       stage: PipelineStage.migrating,
-      statusMessage: 'Running dart fix --apply...',
+      statusMessage: 'Applying Fixes',
     );
 
     try {
       final api = ref.read(apiProvider);
-      final plan = await api.applyMigration(id);
+      final plan = await api.applyMigrationStreaming(id, (line) {
+        state = state.copyWith(progressMessage: line);
+      });
       state = state.copyWith(
         stage: PipelineStage.reviewing,
         migrationPlan: plan,

@@ -135,7 +135,10 @@ class AgentService {
   }
 
   Future<AgentResult> fixErrors(
-      String projectDir, String rawAnalyzerOutput) async {
+    String projectDir,
+    String rawAnalyzerOutput, {
+    void Function(String)? onProgress,
+  }) async {
     final client = AnthropicClient(
       config: AnthropicConfig(
         authProvider: ApiKeyProvider(apiKey),
@@ -146,6 +149,10 @@ class AgentService {
     final analyzerOutput = _stripAbsolutePaths(rawAnalyzerOutput, projectDir);
     final tools = _buildTools();
     final logBuffer = StringBuffer();
+    void progress(String line) {
+      logBuffer.writeln(line);
+      onProgress?.call(line);
+    }
 
     final errorsAndWarnings = _filterErrorsAndWarnings(analyzerOutput);
 
@@ -173,7 +180,7 @@ class AgentService {
     var turn = 0;
 
     print('  [agent] starting with $errorsRemaining errors');
-    logBuffer.writeln('Starting with $errorsRemaining errors');
+    progress('Analyzing $errorsRemaining error(s)...');
 
     try {
       while (analyzeRuns < maxAnalyzeRuns && errorsRemaining > 0) {
@@ -212,20 +219,18 @@ class AgentService {
         print(
             '  [agent] tokens: ${response.usage.inputTokens} in / ${response.usage.outputTokens} out '
             '(stop: ${response.stopReason})');
-        logBuffer.writeln(
-            'Tokens: ${response.usage.inputTokens} in / ${response.usage.outputTokens} out');
 
         for (final block in response.content) {
           if (block is ThinkingBlock) {
-            final preview = block.thinking.length > 500
-                ? '${block.thinking.substring(0, 500)}...'
+            final preview = block.thinking.length > 200
+                ? '${block.thinking.substring(0, 200)}...'
                 : block.thinking;
             print('  [agent] thinking: $preview');
-            logBuffer.writeln('Thinking: $preview');
+            progress(preview);
           }
           if (block is TextBlock) {
             print('  [agent] text: ${block.text}');
-            logBuffer.writeln('Text: ${block.text}');
+            progress(block.text);
           }
         }
 
@@ -255,7 +260,15 @@ class AgentService {
                 ? '{"path":"${block.input['path']}", "content":"...(${(block.input['content'] as String?)?.length ?? 0} chars)"}'
                 : jsonEncode(block.input);
             print('  [agent] -> ${block.name}($inputPreview)');
-            logBuffer.writeln('Tool: ${block.name}($inputPreview)');
+
+            final toolLabel = switch (block.name) {
+              'read_file' => 'Reading ${block.input['path']}',
+              'write_file' => 'Writing ${block.input['path']}',
+              'list_files' => 'Listing project files',
+              'run_analyze' => 'Running dart analyze...',
+              _ => '${block.name}',
+            };
+            progress(toolLabel);
 
             final rawResult = await _executeTool(
               block.name,
@@ -273,7 +286,6 @@ class AgentService {
                 ? '${result.substring(0, 300)}...(${result.length} chars total)'
                 : result;
             print('  [agent] <- ${block.name}: $logPreview');
-            logBuffer.writeln('Result: $logPreview');
 
             toolResultBlocks.add(ToolResultInputBlock(
               toolUseId: block.id,
@@ -285,8 +297,10 @@ class AgentService {
               errorsRemaining = _countErrors(result);
               print(
                   '  [agent] *** analyze #$analyzeRuns: $errorsRemaining errors remaining ***');
-              logBuffer
-                  .writeln('Analyze #$analyzeRuns: $errorsRemaining errors');
+              final analyzeMsg = errorsRemaining == 0
+                  ? 'All errors fixed!'
+                  : '$errorsRemaining error(s) remaining, fixing...';
+              progress(analyzeMsg);
             }
           }
         }
@@ -300,7 +314,7 @@ class AgentService {
     } catch (e, st) {
       print('  [agent] ERROR: $e');
       print('  [agent] stack: $st');
-      logBuffer.writeln('Error: $e\n$st');
+      progress('Error occurred during fixing');
     } finally {
       client.close();
     }
@@ -311,9 +325,9 @@ class AgentService {
     print('  [agent] $summary');
     print(
         '  [agent] total tokens: $totalInputTokens in / $totalOutputTokens out');
-    logBuffer.writeln(summary);
-    logBuffer.writeln(
-        'Total tokens: $totalInputTokens in / $totalOutputTokens out');
+    progress(errorsRemaining == 0
+        ? 'All errors fixed successfully'
+        : '$errorsRemaining error(s) could not be fixed');
 
     return AgentResult(
       success: errorsRemaining == 0,

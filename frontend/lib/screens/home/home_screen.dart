@@ -315,6 +315,7 @@ class _ReviewPage extends ConsumerWidget {
           icon: Icons.auto_fix_high,
           title: 'Applying Fixes',
           subtitle: pipeline.statusMessage ?? 'Running migration...',
+          progressMessage: pipeline.progressMessage,
         ),
       );
     }

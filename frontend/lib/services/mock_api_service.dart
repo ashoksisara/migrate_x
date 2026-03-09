@@ -68,8 +68,27 @@ class MockApiService extends ApiService {
   }
 
   @override
-  Future<MigrationPlan> applyMigration(String id) async {
-    await Future<void>.delayed(const Duration(seconds: 2));
+  Future<MigrationPlan> applyMigrationStreaming(
+    String id,
+    void Function(String) onProgress,
+  ) async {
+    final steps = [
+      'Running dart fix --apply...',
+      'Checking for remaining errors...',
+      'Running AI agent to fix errors...',
+      '--- Turn 1 (analyze 0/5, 6 errors) ---',
+      'thinking: Analyzing errors: CardTheme, TabBarTheme...',
+      'Tool: read_file(lib/theme/app_theme.dart)',
+      '--- Turn 2 (analyze 0/5, 6 errors) ---',
+      'Tool: write_file(lib/theme/app_theme.dart)',
+      '*** analyze #1: 0 errors remaining ***',
+      'SUCCESS: all errors fixed (1 analyze runs, 3 turns)',
+      'Collecting changed files...',
+    ];
+    for (final step in steps) {
+      onProgress(step);
+      await Future<void>.delayed(const Duration(milliseconds: 400));
+    }
     return MigrationPlan(
       summary: 'Migration plan for workspace $id:\n'
           '1. Add const constructors where possible\n'
@@ -78,6 +97,15 @@ class MockApiService extends ApiService {
           '4. Replace deprecated widgets (RaisedButton -> ElevatedButton)\n'
           '5. Add super.key to widget constructors\n'
           '6. Add const to immutable widget instantiations',
+      agentLog: 'Starting with 6 errors\n'
+          '--- Turn 1 (analyze 0/5, 6 errors) ---\n'
+          'Tokens: 1679 in / 424 out\n'
+          'thinking: Analyzing errors: CardTheme, TabBarTheme...\n'
+          'Tool: read_file(lib/theme/app_theme.dart)\n'
+          '--- Turn 2 (analyze 0/5, 6 errors) ---\n'
+          'Tool: write_file(lib/theme/app_theme.dart)\n'
+          '*** analyze #1: 0 errors remaining ***\n'
+          'SUCCESS: all errors fixed (1 analyze runs, 3 turns)',
       fileDiffs: [
         FileDiff(
           filename: 'lib/main.dart',

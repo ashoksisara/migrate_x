@@ -46,12 +46,18 @@ class DryRunResult {
 class MigrationPlanResult {
   final String summary;
   final List<FileDiff> fileDiffs;
+  final String? agentLog;
 
-  MigrationPlanResult({required this.summary, required this.fileDiffs});
+  MigrationPlanResult({
+    required this.summary,
+    required this.fileDiffs,
+    this.agentLog,
+  });
 
   Map<String, dynamic> toJson() => {
         'summary': summary,
         'fileDiffs': fileDiffs.map((d) => d.toJson()).toList(),
+        if (agentLog != null && agentLog!.isNotEmpty) 'agentLog': agentLog,
       };
 }
 
@@ -150,7 +156,8 @@ class MigrationService {
     return path;
   }
 
-  Future<MigrationPlanResult> applyFixes(String id) async {
+  Future<MigrationPlanResult> applyFixes(String id,
+      {void Function(String)? onProgress}) async {
     final workspaceDir = Directory(p.join(workspacePath, id));
     final projectDir = await _findFlutterRoot(id);
     final projectSubdir = projectDir.path == workspaceDir.path
@@ -164,6 +171,7 @@ class MigrationService {
       before[rel] = await file.readAsString();
     }
 
+    onProgress?.call('Running dart fix --apply...');
     print('  -> dart fix --apply in ${projectDir.path}');
     final dartFixResult = await runExecutableArguments(
       'dart',
@@ -173,7 +181,9 @@ class MigrationService {
     print('  -> dart fix --apply exited with ${dartFixResult.exitCode}');
 
     String agentSummary = '';
+    String? agentLog;
     if (agentService != null) {
+      onProgress?.call('Checking for remaining errors...');
       final analyzeResult = await runExecutableArguments(
         'dart',
         ['analyze', '--format=machine'],
@@ -191,18 +201,25 @@ class MigrationService {
           });
 
       if (hasErrorsOrWarnings) {
+        onProgress?.call('Running AI agent to fix errors...');
         print('  -> errors remain after dart fix, starting agent loop');
-        final agentResult =
-            await agentService!.fixErrors(projectDir.path, analyzerOutput);
+        final agentResult = await agentService!.fixErrors(
+          projectDir.path,
+          analyzerOutput,
+          onProgress: onProgress,
+        );
         agentSummary = agentResult.success
             ? ' Agent fixed all remaining errors in ${agentResult.analyzeRuns} round(s).'
             : ' Agent made ${agentResult.analyzeRuns} round(s), ${agentResult.errorsRemaining} error(s) remain.';
+        agentLog = agentResult.log;
         print('  -> agent done: ${agentResult.success ? 'all fixed' : '${agentResult.errorsRemaining} errors remain'}');
       } else {
+        onProgress?.call('No errors remaining, agent not needed.');
         print('  -> no errors after dart fix, agent not needed');
       }
     }
 
+    onProgress?.call('Collecting changed files...');
     final diffs = <FileDiff>[];
     final afterFiles = await _collectDartFiles(projectDir.path);
     for (final file in afterFiles) {
@@ -221,6 +238,7 @@ class MigrationService {
     return MigrationPlanResult(
       summary: '${diffs.length} file(s) updated.$agentSummary',
       fileDiffs: diffs,
+      agentLog: agentLog,
     );
   }
 

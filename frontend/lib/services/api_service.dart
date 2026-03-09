@@ -5,6 +5,8 @@ import 'package:http/http.dart' as http;
 
 import '../models/analysis_result.dart';
 import '../models/migration_plan.dart';
+import '../utils/sse_post_stub.dart'
+    if (dart.library.html) '../utils/sse_post_web.dart' as sse;
 
 class ApiService {
   final String baseUrl;
@@ -66,15 +68,14 @@ class ApiService {
   }
 
   Future<MigrationPlan> applyMigration(String id) async {
-    final uri = Uri.parse('$baseUrl/migrate/apply/$id');
-    final response = await _client.post(uri);
+    return applyMigrationStreaming(id, (_) {});
+  }
 
-    if (response.statusCode != 200) {
-      throw Exception('Apply migration failed: ${response.body}');
-    }
-
-    final json = jsonDecode(response.body) as Map<String, dynamic>;
-    return MigrationPlan.fromJson(json);
+  Future<MigrationPlan> applyMigrationStreaming(
+    String id,
+    void Function(String) onProgress,
+  ) {
+    return sse.applyMigrationSSE('$baseUrl/migrate/apply/$id', onProgress);
   }
 
   Future<Uint8List> downloadZip(String id,

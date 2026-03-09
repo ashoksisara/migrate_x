@@ -54,8 +54,15 @@ Future<void> main() async {
       .addMiddleware(requestLogger())
       .addHandler(router.call);
 
-  final server = await shelf_io.serve(handler, InternetAddress.anyIPv4, config.port);
+  final server = await HttpServer.bind(InternetAddress.anyIPv4, config.port);
   server.autoCompress = true;
+
+  server.listen((HttpRequest request) async {
+    if (request.headers.value('accept')?.contains('text/event-stream') == true) {
+      request.response.bufferOutput = false;
+    }
+    await shelf_io.handleRequest(request, handler);
+  });
 
   print('Migrate X backend running at http://${server.address.host}:${server.port}');
 }

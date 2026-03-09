@@ -21,10 +21,12 @@ class FileDiff {
 class MigrationPlan {
   final String summary;
   final List<FileDiff> fileDiffs;
+  final String? agentLog;
 
   MigrationPlan({
     required this.summary,
     required this.fileDiffs,
+    this.agentLog,
   });
 
   factory MigrationPlan.fromJson(Map<String, dynamic> json) {
@@ -34,6 +36,7 @@ class MigrationPlan {
     return MigrationPlan(
       summary: json['summary'] as String,
       fileDiffs: diffs,
+      agentLog: json['agentLog'] as String?,
     );
   }
 }
