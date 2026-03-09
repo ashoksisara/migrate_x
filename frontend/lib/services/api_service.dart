@@ -4,7 +4,6 @@ import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 
 import '../models/analysis_result.dart';
-import '../models/dry_run_result.dart';
 import '../models/migration_plan.dart';
 
 class ApiService {
@@ -66,18 +65,6 @@ class ApiService {
         .toList();
   }
 
-  Future<DryRunResult> getMigrationDryRun(String id) async {
-    final uri = Uri.parse('$baseUrl/migrate/dry-run/$id');
-    final response = await _client.post(uri);
-
-    if (response.statusCode != 200) {
-      throw Exception('Dry run failed: ${response.body}');
-    }
-
-    final json = jsonDecode(response.body) as Map<String, dynamic>;
-    return DryRunResult.fromJson(json);
-  }
-
   Future<MigrationPlan> applyMigration(String id) async {
     final uri = Uri.parse('$baseUrl/migrate/apply/$id');
     final response = await _client.post(uri);
@@ -90,9 +77,15 @@ class ApiService {
     return MigrationPlan.fromJson(json);
   }
 
-  Future<Uint8List> downloadZip(String id) async {
+  Future<Uint8List> downloadZip(String id,
+      {List<String> declinedFiles = const []}) async {
     final uri = Uri.parse('$baseUrl/download/$id');
-    final response = await _client.get(uri);
+    final body = jsonEncode({'declinedFiles': declinedFiles});
+    final response = await _client.post(
+      uri,
+      headers: {'Content-Type': 'application/json'},
+      body: body,
+    );
 
     if (response.statusCode != 200) {
       throw Exception('Download failed: ${response.body}');

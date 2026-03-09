@@ -8,9 +8,10 @@ import 'package:shelf_router/shelf_router.dart';
 import 'package:uuid/uuid.dart';
 
 import '../exceptions.dart';
+import '../services/migration_service.dart';
 import '../services/zip_service.dart';
 
-Router uploadRoutes(ZipService zipService) {
+Router uploadRoutes(ZipService zipService, MigrationService migrationService) {
   final router = Router();
   final uuid = Uuid();
 
@@ -69,6 +70,7 @@ Router uploadRoutes(ZipService zipService) {
   router.delete('/<id>', (Request request, String id) async {
     try {
       print('[upload] deleting workspace $id');
+      migrationService.clearBefore(id);
       await zipService.delete(id);
       print('[upload] workspace $id deleted');
       return Response.ok(

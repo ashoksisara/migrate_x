@@ -4,6 +4,7 @@ import 'package:path/path.dart' as p;
 import 'package:process_run/process_run.dart';
 
 import '../exceptions.dart';
+import 'agent_service.dart';
 import 'patch_service.dart';
 
 class FixSuggestion {
@@ -56,8 +57,17 @@ class MigrationPlanResult {
 
 class MigrationService {
   final String workspacePath;
+  final AgentService? agentService;
 
-  MigrationService(this.workspacePath);
+  final Map<String, ({String projectSubdir, Map<String, String> before})>
+      _beforeByWorkspace = {};
+
+  MigrationService(this.workspacePath, {this.agentService});
+
+  ({String projectSubdir, Map<String, String> before})? getBefore(String id) =>
+      _beforeByWorkspace[id];
+
+  void clearBefore(String id) => _beforeByWorkspace.remove(id);
 
   Future<Directory> _findFlutterRoot(String id) async {
     final workspaceDir = Directory(p.join(workspacePath, id));
@@ -141,7 +151,11 @@ class MigrationService {
   }
 
   Future<MigrationPlanResult> applyFixes(String id) async {
+    final workspaceDir = Directory(p.join(workspacePath, id));
     final projectDir = await _findFlutterRoot(id);
+    final projectSubdir = projectDir.path == workspaceDir.path
+        ? ''
+        : p.relative(projectDir.path, from: workspaceDir.path);
 
     final dartFiles = await _collectDartFiles(projectDir.path);
     final before = <String, String>{};
@@ -151,12 +165,43 @@ class MigrationService {
     }
 
     print('  -> dart fix --apply in ${projectDir.path}');
-    final result = await runExecutableArguments(
+    final dartFixResult = await runExecutableArguments(
       'dart',
       ['fix', '--apply'],
       workingDirectory: projectDir.path,
     );
-    print('  -> dart fix --apply exited with ${result.exitCode}');
+    print('  -> dart fix --apply exited with ${dartFixResult.exitCode}');
+
+    String agentSummary = '';
+    if (agentService != null) {
+      final analyzeResult = await runExecutableArguments(
+        'dart',
+        ['analyze', '--format=machine'],
+        workingDirectory: projectDir.path,
+      );
+      final analyzerOutput = analyzeResult.stdout.toString().trim();
+      final hasErrorsOrWarnings = analyzerOutput.isNotEmpty &&
+          !analyzerOutput.contains('No issues found') &&
+          analyzerOutput.split('\n').any((l) {
+            final lower = l.toLowerCase();
+            return lower.startsWith('error|') ||
+                lower.startsWith('warning|') ||
+                lower.contains('|error|') ||
+                lower.contains('|warning|');
+          });
+
+      if (hasErrorsOrWarnings) {
+        print('  -> errors remain after dart fix, starting agent loop');
+        final agentResult =
+            await agentService!.fixErrors(projectDir.path, analyzerOutput);
+        agentSummary = agentResult.success
+            ? ' Agent fixed all remaining errors in ${agentResult.analyzeRuns} round(s).'
+            : ' Agent made ${agentResult.analyzeRuns} round(s), ${agentResult.errorsRemaining} error(s) remain.';
+        print('  -> agent done: ${agentResult.success ? 'all fixed' : '${agentResult.errorsRemaining} errors remain'}');
+      } else {
+        print('  -> no errors after dart fix, agent not needed');
+      }
+    }
 
     final diffs = <FileDiff>[];
     final afterFiles = await _collectDartFiles(projectDir.path);
@@ -169,10 +214,12 @@ class MigrationService {
       }
     }
 
-    print('  -> ${diffs.length} file(s) changed after dart fix --apply');
+    print('  -> ${diffs.length} file(s) changed total');
+
+    _beforeByWorkspace[id] = (projectSubdir: projectSubdir, before: before);
 
     return MigrationPlanResult(
-      summary: '${diffs.length} file(s) updated by dart fix --apply.',
+      summary: '${diffs.length} file(s) updated.$agentSummary',
       fileDiffs: diffs,
     );
   }

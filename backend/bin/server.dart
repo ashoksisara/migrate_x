@@ -8,6 +8,7 @@ import 'package:shelf_router/shelf_router.dart';
 import 'package:migrate_x_backend/config.dart';
 import 'package:migrate_x_backend/cors.dart';
 import 'package:migrate_x_backend/logger.dart';
+import 'package:migrate_x_backend/services/agent_service.dart';
 import 'package:migrate_x_backend/services/analyzer_service.dart';
 import 'package:migrate_x_backend/services/migration_service.dart';
 import 'package:migrate_x_backend/services/zip_service.dart';
@@ -29,15 +30,24 @@ Future<void> main() async {
     await workspaceDir.create(recursive: true);
   }
 
+  AgentService? agentService;
+  if (config.anthropicApiKey != null && config.anthropicApiKey!.isNotEmpty) {
+    agentService = AgentService(apiKey: config.anthropicApiKey!);
+    print('Claude agent enabled (API key configured)');
+  } else {
+    print('Claude agent disabled (no ANTHROPIC_API_KEY)');
+  }
+
   final zipService = ZipService(config.workspacePath);
   final analyzerService = AnalyzerService(config.workspacePath);
-  final migrationService = MigrationService(config.workspacePath);
+  final migrationService =
+      MigrationService(config.workspacePath, agentService: agentService);
 
   final router = Router()
-    ..mount('/upload', uploadRoutes(zipService).call)
+    ..mount('/upload', uploadRoutes(zipService, migrationService).call)
     ..mount('/analyze', analysisRoutes(analyzerService).call)
     ..mount('/migrate', migrationRoutes(migrationService).call)
-    ..mount('/download', downloadRoutes(zipService).call);
+    ..mount('/download', downloadRoutes(zipService, migrationService).call);
 
   final handler = const Pipeline()
       .addMiddleware(corsHeaders())

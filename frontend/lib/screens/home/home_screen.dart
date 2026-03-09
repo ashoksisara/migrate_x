@@ -3,12 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../providers/theme_provider.dart';
 import '../../models/analysis_result.dart';
-import '../../models/dry_run_result.dart';
 import '../../widgets/analysis_card.dart';
 import '../../widgets/download_button.dart';
 import '../../widgets/file_diff_card.dart';
 import '../../widgets/loading_card.dart';
-import '../../widgets/migration_fix_card.dart';
 import '../../widgets/pipeline_card.dart';
 import '../../widgets/section_header.dart';
 import '../../widgets/section_page.dart';
@@ -54,13 +52,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       case PipelineStage.analysisComplete:
         return 2;
       case PipelineStage.migrating:
-      case PipelineStage.migrationComplete:
-        return 3;
-      case PipelineStage.applying:
       case PipelineStage.reviewing:
-        return 4;
+        return 3;
       case PipelineStage.downloadReady:
-        return 5;
+        return 4;
     }
   }
 
@@ -137,7 +132,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ),
           _UploadPage(pipeline: pipeline),
           _AnalysisPage(pipeline: pipeline),
-          _MigrationPage(pipeline: pipeline),
           _ReviewPage(pipeline: pipeline),
           _DownloadPage(
             pipeline: pipeline,
@@ -315,105 +309,19 @@ class _AnalysisPage extends ConsumerWidget {
   }
 }
 
-class _MigrationPage extends ConsumerWidget {
-  final PipelineState pipeline;
-  const _MigrationPage({required this.pipeline});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final isLoading = pipeline.stage == PipelineStage.migrating;
-    final isDone = pipeline.stage == PipelineStage.migrationComplete;
-
-    if (isLoading) {
-      return SectionPage(
-        maxWidth: kPipelineCardWidth,
-        child: LoadingCard(
-          icon: Icons.build_outlined,
-          title: 'Scanning Migrations',
-          subtitle: pipeline.statusMessage ?? 'Running dart fix --dry-run...',
-        ),
-      );
-    }
-
-    final dryRun = pipeline.dryRunResult;
-    if (dryRun == null) return const SizedBox.shrink();
-
-    final colors = Theme.of(context).colorScheme;
-
-    if (dryRun.suggestions.isEmpty) {
-      return SectionPage(
-        maxWidth: kPipelineCardWidth,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _MigrationSummaryPipelineCard(dryRun: dryRun),
-            if (isDone) ...[
-              const SizedBox(height: 24),
-              IconButton.filled(
-                onPressed: () =>
-                    ref.read(pipelineProvider.notifier).applyFixes(),
-                icon: const Icon(Icons.keyboard_arrow_down, size: 32),
-                style: IconButton.styleFrom(
-                  backgroundColor: colors.primary,
-                  foregroundColor: colors.onPrimary,
-                ),
-              ),
-            ],
-          ],
-        ),
-      );
-    }
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 620),
-          child: Column(
-            children: [
-              _MigrationSummaryCard(dryRun: dryRun),
-              const SizedBox(height: 12),
-              Expanded(
-                child: ListView.builder(
-                  itemCount: dryRun.suggestions.length,
-                  itemBuilder: (context, index) => MigrationFixCard(
-                      suggestion: dryRun.suggestions[index]),
-                ),
-              ),
-              if (isDone) ...[
-                const SizedBox(height: 12),
-                IconButton.filled(
-                  onPressed: () =>
-                      ref.read(pipelineProvider.notifier).applyFixes(),
-                  icon: const Icon(Icons.keyboard_arrow_down, size: 32),
-                  style: IconButton.styleFrom(
-                    backgroundColor: colors.primary,
-                    foregroundColor: colors.onPrimary,
-                  ),
-                ),
-                const SizedBox(height: 8),
-              ],
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class _ReviewPage extends ConsumerWidget {
   final PipelineState pipeline;
   const _ReviewPage({required this.pipeline});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    if (pipeline.stage == PipelineStage.applying) {
+    if (pipeline.stage == PipelineStage.migrating) {
       return SectionPage(
         maxWidth: kPipelineCardWidth,
         child: LoadingCard(
           icon: Icons.auto_fix_high,
           title: 'Applying Fixes',
-          subtitle: pipeline.statusMessage ?? 'Running dart fix --apply...',
+          subtitle: pipeline.statusMessage ?? 'Running migration...',
         ),
       );
     }
@@ -509,6 +417,10 @@ class _DownloadPage extends StatelessWidget {
             ] else
               DownloadButton(
                 workspaceId: pipeline.workspaceId!,
+                declinedFiles: pipeline.fileDecisions.entries
+                    .where((e) => !e.value)
+                    .map((e) => e.key)
+                    .toList(),
                 onStartOver: onStartOver,
               ),
           ],
@@ -651,101 +563,6 @@ class _AnalysisSummaryCard extends StatelessWidget {
             ],
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _MigrationSummaryCard extends StatelessWidget {
-  final DryRunResult dryRun;
-  const _MigrationSummaryCard({required this.dryRun});
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    final text = Theme.of(context).textTheme;
-
-    if (dryRun.suggestions.isEmpty) {
-      return Card(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.check_circle_outline, size: 40, color: colors.primary),
-              const SizedBox(height: 12),
-              Text('Migration Scan Complete', style: text.titleMedium),
-              const SizedBox(height: 4),
-              Text(
-                'No automatic fixes available.',
-                style: text.bodyMedium
-                    ?.copyWith(color: colors.onSurfaceVariant),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.build_outlined, size: 40, color: colors.primary),
-            const SizedBox(height: 12),
-            Text('Migration Scan Complete', style: text.titleMedium),
-            const SizedBox(height: 4),
-            Text(
-              '${dryRun.totalFixes} fix${dryRun.totalFixes == 1 ? '' : 'es'} '
-              'in ${dryRun.totalFiles} file${dryRun.totalFiles == 1 ? '' : 's'}',
-              style: text.bodyMedium
-                  ?.copyWith(color: colors.onSurfaceVariant),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _MigrationSummaryPipelineCard extends StatelessWidget {
-  final DryRunResult dryRun;
-  const _MigrationSummaryPipelineCard({required this.dryRun});
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    final text = Theme.of(context).textTheme;
-
-    return PipelineCard(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            dryRun.suggestions.isEmpty
-                ? Icons.check_circle_outline
-                : Icons.build_outlined,
-            size: 64,
-            color: colors.primary,
-          ),
-          const SizedBox(height: 16),
-          Text('Migration Scan Complete', style: text.headlineSmall),
-          const SizedBox(height: 8),
-          Text(
-            dryRun.suggestions.isEmpty
-                ? 'No automatic fixes available.'
-                : '${dryRun.totalFixes} fix${dryRun.totalFixes == 1 ? '' : 'es'} '
-                    'in ${dryRun.totalFiles} file${dryRun.totalFiles == 1 ? '' : 's'}',
-            textAlign: TextAlign.center,
-            style:
-                text.bodyMedium?.copyWith(color: colors.onSurfaceVariant),
-          ),
-        ],
       ),
     );
   }

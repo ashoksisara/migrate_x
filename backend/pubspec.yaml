@@ -15,6 +15,7 @@ dependencies:
   args: ^2.5.0
   uuid: ^4.5.1
   shelf_multipart: ^2.0.1
+  anthropic_sdk_dart: ^1.2.1
 
 dev_dependencies:
   lints: ^5.1.1

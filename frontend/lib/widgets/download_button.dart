@@ -2,13 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers/api_provider.dart';
+import '../utils/download_helper_stub.dart'
+    if (dart.library.html) '../utils/download_helper_web.dart' as download_helper;
 
 class DownloadButton extends ConsumerStatefulWidget {
   final String workspaceId;
+  final List<String> declinedFiles;
   final VoidCallback? onStartOver;
   const DownloadButton({
     super.key,
     required this.workspaceId,
+    this.declinedFiles = const [],
     this.onStartOver,
   });
 
@@ -58,8 +62,9 @@ class _DownloadButtonState extends ConsumerState<DownloadButton> {
     setState(() => _downloading = true);
     try {
       final api = ref.read(apiProvider);
-      await api.downloadZip(widget.workspaceId);
-      // TODO: Trigger browser file save with the returned bytes
+      final bytes = await api.downloadZip(widget.workspaceId,
+          declinedFiles: widget.declinedFiles);
+      download_helper.triggerZipDownload(bytes, '${widget.workspaceId}.zip');
       if (mounted) setState(() => _done = true);
     } catch (e) {
       if (mounted) {
