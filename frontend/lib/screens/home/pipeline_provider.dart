@@ -162,6 +162,10 @@ class PipelineNotifier extends Notifier<PipelineState> {
     }
   }
 
+  void proceedToDownload() {
+    state = state.copyWith(stage: PipelineStage.downloadReady);
+  }
+
   void reset() {
     final oldId = state.workspaceId;
     if (oldId != null) {

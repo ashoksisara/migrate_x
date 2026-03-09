@@ -8,7 +8,7 @@ import '../../widgets/download_button.dart';
 import '../../widgets/file_diff_card.dart';
 import '../../widgets/loading_card.dart';
 import '../../widgets/pipeline_card.dart';
-import '../../widgets/section_header.dart';
+import '../../widgets/proceed_arrow_button.dart';
 import '../../widgets/section_page.dart';
 import 'pipeline_provider.dart';
 import 'upload_button.dart';
@@ -268,8 +268,6 @@ class _AnalysisPage extends ConsumerWidget {
     final results = pipeline.analysisResults;
     if (results == null) return const SizedBox.shrink();
 
-    final colors = Theme.of(context).colorScheme;
-
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
       child: Center(
@@ -290,14 +288,9 @@ class _AnalysisPage extends ConsumerWidget {
               ],
               if (isDone) ...[
                 const SizedBox(height: 12),
-                IconButton.filled(
+                ProceedArrowButton(
                   onPressed: () =>
                       ref.read(pipelineProvider.notifier).startMigration(),
-                  icon: const Icon(Icons.keyboard_arrow_down, size: 32),
-                  style: IconButton.styleFrom(
-                    backgroundColor: colors.primary,
-                    foregroundColor: colors.onPrimary,
-                  ),
                 ),
                 const SizedBox(height: 8),
               ],
@@ -335,11 +328,6 @@ class _ReviewPage extends ConsumerWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const SectionHeader(
-            icon: Icons.compare_arrows,
-            title: 'Migration Diff',
-          ),
-          const SizedBox(height: 8),
           Card(
             child: Padding(
               padding: const EdgeInsets.all(16),
@@ -348,11 +336,13 @@ class _ReviewPage extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 16),
-          ...plan.fileDiffs.map((diff) {
+          ...plan.fileDiffs.asMap().entries.map((entry) {
+            final diff = entry.value;
             final decision = pipeline.fileDecisions[diff.filename];
             return FileDiffCard(
               diff: diff,
               decision: decision,
+              index: entry.key,
               onAccept: () => ref
                   .read(pipelineProvider.notifier)
                   .acceptFile(diff.filename),
@@ -361,6 +351,14 @@ class _ReviewPage extends ConsumerWidget {
                   .declineFile(diff.filename),
             );
           }),
+          const SizedBox(height: 24),
+          Center(
+            child: ProceedArrowButton(
+              onPressed: () =>
+                  ref.read(pipelineProvider.notifier).proceedToDownload(),
+            ),
+          ),
+          const SizedBox(height: 8),
         ],
       ),
     );
@@ -375,6 +373,9 @@ class _DownloadPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final accepted = pipeline.acceptedFiles;
+    final fileCount = pipeline.migrationPlan?.fileDiffs.length ?? 0;
+    final canDownload = accepted.isNotEmpty ||
+        (fileCount > 0 && pipeline.fileDecisions.isEmpty);
 
     return SectionPage(
       maxWidth: kPipelineCardWidth,
@@ -394,21 +395,16 @@ class _DownloadPage extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              '${accepted.length} file(s) accepted for migration.',
+              canDownload
+                  ? '${accepted.isNotEmpty ? accepted.length : fileCount} file(s) ready for download.'
+                  : 'No files to download.',
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
             ),
             const SizedBox(height: 24),
-            if (accepted.isEmpty) ...[
-              Text(
-                'No files were accepted. Nothing to download.',
-                style: TextStyle(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-              ),
-              const SizedBox(height: 16),
+            if (!canDownload) ...[
               OutlinedButton.icon(
                 onPressed: onStartOver,
                 icon: const Icon(Icons.refresh),
@@ -464,14 +460,7 @@ class _HeroPage extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 48),
-          IconButton.filled(
-            onPressed: onGetStarted,
-            icon: const Icon(Icons.keyboard_arrow_down, size: 32),
-            style: IconButton.styleFrom(
-              backgroundColor: colors.primary,
-              foregroundColor: colors.onPrimary,
-            ),
-          ),
+          ProceedArrowButton(onPressed: onGetStarted),
         ],
       ),
     );

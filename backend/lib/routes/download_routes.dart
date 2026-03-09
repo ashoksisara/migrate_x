@@ -12,33 +12,32 @@ Router downloadRoutes(ZipService zipService, MigrationService migrationService) 
 
   router.post('/<id>', (Request request, String id) async {
     try {
-      List<String> declinedFiles = [];
-      final body = await request.readAsString();
-      if (body.isNotEmpty) {
-        try {
-          final json = jsonDecode(body) as Map<String, dynamic>;
-          final list = json['declinedFiles'];
-          if (list is List) {
-            declinedFiles =
-                list.map((e) => e.toString()).where((s) => s.isNotEmpty).toList();
-          }
-        } catch (_) {}
-      }
+      // TODO: Accept/decline - re-enable when needed
+      // List<String> declinedFiles = [];
+      // final body = await request.readAsString();
+      // if (body.isNotEmpty) {
+      //   try {
+      //     final json = jsonDecode(body) as Map<String, dynamic>;
+      //     final list = json['declinedFiles'];
+      //     if (list is List) {
+      //       declinedFiles =
+      //           list.map((e) => e.toString()).where((s) => s.isNotEmpty).toList();
+      //     }
+      //   } catch (_) {}
+      // }
+      // final before = migrationService.getBefore(id);
+      // String projectSubdir = '';
+      // Map<String, String> overrides = {};
+      // if (before != null && declinedFiles.isNotEmpty) {
+      //   projectSubdir = before.projectSubdir;
+      //   for (final path in declinedFiles) {
+      //     final content = before.before[path];
+      //     if (content != null) overrides[path] = content;
+      //   }
+      // }
 
-      final before = migrationService.getBefore(id);
-      String projectSubdir = '';
-      Map<String, String> overrides = {};
-      if (before != null && declinedFiles.isNotEmpty) {
-        projectSubdir = before.projectSubdir;
-        for (final path in declinedFiles) {
-          final content = before.before[path];
-          if (content != null) overrides[path] = content;
-        }
-      }
-
-      print('[download] zipping workspace $id (${overrides.length} files reverted)');
-      final zipBytes = await zipService.zip(id,
-          projectSubdir: projectSubdir, overrides: overrides);
+      print('[download] zipping workspace $id');
+      final zipBytes = await zipService.zip(id);
       print('[download] zip ready (${zipBytes.length} bytes)');
 
       return Response.ok(
