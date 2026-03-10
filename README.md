@@ -133,3 +133,7 @@ The app connects to `http://localhost:8080` by default. Update the base URL in `
 - Replacing deprecated widgets (`RaisedButton`, `FlatButton`, `WillPopScope`, `accentColor`, `primarySwatch`, etc.)
 - Resolving lint warnings and `dart analyze` errors before a release
 - Quick code review of what an automated migration would change, via diff preview
+
+---
+
+<h3 align="center">⭐ Star this repo if you find it useful — it helps others discover it and keeps development going!</h3>
